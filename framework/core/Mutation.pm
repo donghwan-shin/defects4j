@@ -49,6 +49,10 @@ my $EXCL_FILE = "exclude.txt";
 my $KILL_FILE = "kill.csv";
 # Name of file that provides a summary of the mutation analysis results
 my $SUMMARY_FILE = "summary.csv";
+# Name of file that provides a killMap of the mutation analysis results
+my $KILLMAP_FILE = "killMap.csv";
+# Name of file that provides a mutation coverage map of the mutation analysis reseults
+my $TESTMAP_FILE = "testMap.csv";
 
 =pod
 
@@ -181,6 +185,17 @@ sub copy_mutation_logs {
         system("cp $project->{prog_root}/$KILL_FILE $log_dir/$suite/$vid.$test_id.$KILL_FILE") == 0
             or die "Cannot copy $KILL_FILE!";
     }
+    # The file with the kill map is only generated upon success
+    if (-e "$project->{prog_root}/$KILLMAP_FILE") {
+        system("cp $project->{prog_root}/$KILLMAP_FILE $log_dir/$suite/$vid.$test_id.$KILLMAP_FILE") == 0
+            or die "Cannot copy $KILLMAP_FILE!";
+    }
+    # The file with the mutation coverage map (i.e., test map) is only generated upon success
+    if (-e "$project->{prog_root}/$TESTMAP_FILE") {
+        system("cp $project->{prog_root}/$TESTMAP_FILE $log_dir/$suite/$vid.$test_id.$TESTMAP_FILE") == 0
+            or die "Cannot copy $TESTMAP_FILE!";
+    }
+
 }
 
 
