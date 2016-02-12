@@ -802,7 +802,7 @@ sub run_evosuite {
     close(IN);
 
     my $cmd = "cd $self->{prog_root}" .
-              " && java -cp $TESTGEN_LIB_DIR/evosuite-current.jar org.evosuite.EvoSuite " .
+              " && java -Xmx6g -XX:-UseGCOverheadLimit -cp $TESTGEN_LIB_DIR/evosuite-current.jar org.evosuite.EvoSuite " .
                 "-class $class " .
                 "-projectCP $cp " .
                 "-Dtest_dir=evosuite-$criterion " .
