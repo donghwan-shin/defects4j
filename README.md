@@ -1,4 +1,4 @@
-Defects4J -- version 1.0.0
+Defects4J -- version 1.0.1
 ----------------
 Defects4J is a collection of reproducible bugs collected with the goal of
 advancing software testing research.
@@ -91,7 +91,7 @@ Documentation
 A detailed documentation for any script or module is available as
 [html documentation][htmldocs].
 
-[htmldocs]: http://homes.cs.washington.edu/~rjust/defects4j/html_doc/index.html
+[htmldocs]: http://people.cs.umass.edu/~rjust/defects4j/html_doc/index.html
 
 Command-line interface
 -----------------------
