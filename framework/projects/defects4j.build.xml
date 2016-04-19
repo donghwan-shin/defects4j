@@ -181,6 +181,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
     Run mutation analysis
 -->
     <target name="mutation.test" depends="compile.tests,update.all.tests" description="Perform mutation analysis">
+    <parallel threadCount="1" timeout="36000000">
         <!-- Test a generated test suite -->
         <if><isset property="d4j.test.include"/>
             <then>
@@ -208,8 +209,8 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
 
             mutationAnalysis="true"
             timeoutFactor="16"
-            sort="sort_classes"
-            haltonfailure="true"
+            haltonfailure="false"
+            excludeFailingTests="true"
             killDetailsFile="${major.kill.log}"
             excludeFile="${major.exclude}"
             exportKillMap="true"
@@ -233,6 +234,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
                 <fileset refid="major.tests"/>
             </batchtest>
         </junit>
+    </parallel>
     </target>
 
 <!--

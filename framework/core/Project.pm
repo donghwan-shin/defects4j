@@ -802,7 +802,7 @@ sub run_evosuite {
     close(IN);
 
     my $cmd = "cd $self->{prog_root}" .
-              " && java -Xmx6g -XX:-UseGCOverheadLimit -cp $TESTGEN_LIB_DIR/evosuite-current.jar org.evosuite.EvoSuite " .
+              " && java -Xmx4g -XX:-UseGCOverheadLimit -cp $TESTGEN_LIB_DIR/evosuite-current.jar org.evosuite.EvoSuite " .
                 "-class $class " .
                 "-projectCP $cp " .
                 "-Dtest_dir=evosuite-$criterion " .
@@ -851,7 +851,7 @@ sub run_randoop {
     close(IN);
 
     my $cmd = "cd $self->{prog_root}" .
-              " && java -Xmx6g -XX:-UseGCOverheadLimit -ea -classpath $cp:$TESTGEN_LIB_DIR/randoop-current.jar randoop.main.Main gentests " .
+              " && java -Xmx2g -XX:-UseGCOverheadLimit -ea -classpath $cp:$TESTGEN_LIB_DIR/randoop-current.jar randoop.main.Main gentests " .
                 "$target_classes " .
                 "--junit-output-dir=randoop " .
                 "--timelimit=$timeout " .

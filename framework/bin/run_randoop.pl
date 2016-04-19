@@ -190,7 +190,7 @@ $config = $ENV{RANDOOP_CONFIG_FILE} // $config;
 
 # TODO: Enable target class filtering once Randoop is fixed.
 # $project->run_randoop("$test_classes $target_classes", $TIME, ($TID*1000 + $BID), $config, $log) or die "Failed to generate tests!";
-$project->run_randoop("$test_classes", $TIME, ($TID*1000 + $BID), $config, $log) or die "Failed to generate tests!";
+$project->run_randoop("$test_classes", $TIME, int(rand(10000)), $config, $log) or die "Failed to generate tests!";
 
 # Copy log file for this version id and test criterion to output directory
 system("mv $log $LOG_DIR") == 0 or die "Cannot copy log file!";
