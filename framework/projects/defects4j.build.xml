@@ -182,6 +182,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
     Run mutation analysis
 -->
     <target name="mutation.test" depends="compile.tests,update.all.tests" description="Perform mutation analysis">
+        <parallel threadCount="1" timeout="3600000">
         <!-- Test a generated test suite -->
         <if><isset property="d4j.test.include"/>
             <then>
@@ -241,6 +242,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
                 <fileset refid="major.tests"/>
             </batchtest>
         </junit>
+        </parallel>
     </target>
 
 <!--
