@@ -217,7 +217,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
             timeoutFactor="16"
             sort="${major.sort}"
             haltonfailure="false"
-			excludeFailingTests="true"
+            excludeFailingTests="true"
             killDetailsFile="${major.kill.log}"
             excludeFile="${major.exclude}"
             exportKillMap="true"
