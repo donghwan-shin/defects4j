@@ -5,24 +5,29 @@ list_oru={+,-,~};
 list_ror={>,>=,<,<=,==,!=,FALSE,TRUE,LHS,RHS};
 list_cor={||,&&,==,!=,LHS,RHS,TRUE,FALSE};
 
+// Replacements for the AOR operator
 BIN(+)->list_aor;
 BIN(-)->list_aor;
 BIN(*)->list_aor;
 BIN(/)->list_aor;
 BIN(%)->list_aor;
 
+// Replacements for the SOR operator
 BIN(>>)->list_sor;
 BIN(<<)->list_sor;
 BIN(>>>)->list_sor;
 
+// Replacements for the LOR operator
 BIN(&)->list_lor;
 BIN(|)->list_lor;
 BIN(^)->list_lor;
 
+// Replacements for the ORU operator
 UNR(+)->list_oru;
 UNR(-)->list_oru;
 UNR(~)->list_oru;
 
+// Replacements the for ROR operator
 BIN(>)->list_ror;
 BIN(<)->list_ror;
 BIN(>=)->list_ror;
@@ -30,13 +35,25 @@ BIN(<=)->list_ror;
 BIN(==)->list_ror;
 BIN(!=)->list_ror;
 
+// Replacements for COR
 BIN(&&)->list_cor;
 BIN(||)->list_cor;
 
-// Delete all types of statements (STD operator)
+// Deletions for the STD operator (type of statement that should be deleted)
 DEL(CALL);
-DEL(INC/DEC);
+DEL(INC);
+DEL(DEC);
 DEL(ASSIGN);
+// Don't delete return, continue, and break statements by default
+//DEL(RETURN);
+//DEL(CONT);
+//DEL(BREAK);
+
+// Literal types for the LVR operator
+LIT(BOOLEAN);
+LIT(NUMBER);
+// Don't mutate String literals by default
+//LIT(STRING);
 
 -LVR<"org.apache.commons.math3.util.FastMathLiteralArrays">;
 -ORU<"org.apache.commons.math3.util.FastMathLiteralArrays">;
