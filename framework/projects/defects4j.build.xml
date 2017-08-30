@@ -128,7 +128,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
     Test has to be provided as property "test.entry" (class::method)
     and the output is redirected to "test.output"
 -->
-    <target name="monitor.test" depends="compile" description="Run a single test class or method and monitor class loader">
+    <target name="monitor.test" description="Run a single test class or method and monitor class loader">
         <fail message="Property test.entry not set!" unless="test.entry" />
         <fail message="Property test.output not set!" unless="test.output" />
 
@@ -168,6 +168,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
         TODO: Improve compiler adapter to explicitly override the output directory.
         -->
         <property name="build.compiler" value="major.ant.MajorCompiler"/>
+        <property name="d4j.mutation" value="true"/>
         <!-- Call original compile target -->
         <antcall target="compile"/>
         <!-- Move mutated classes to dedicated directory -->
@@ -181,7 +182,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
     Run mutation analysis
 -->
     <target name="mutation.test" depends="compile.tests,update.all.tests" description="Perform mutation analysis">
-    <parallel threadCount="1" timeout="36000000">
+        <parallel threadCount="1" timeout="3600000">
         <!-- Test a generated test suite -->
         <if><isset property="d4j.test.include"/>
             <then>
@@ -201,6 +202,11 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
         <fail message="Property major.exclude not set!" unless="major.exclude" />
         <fail message="Property major.kill.log not set!" unless="major.kill.log" />
 
+        <!-- Sort test classes by run time, unless a single test method is run -->
+        <condition property="major.sort" value="original" else="sort_classes">
+            <isset property="test.entry.method"/>
+        </condition>
+
         <echo message="Running mutation analysis ..."/>
         <junit
             printsummary="false"
@@ -209,11 +215,13 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
 
             mutationAnalysis="true"
             timeoutFactor="16"
+            sort="${major.sort}"
             haltonfailure="false"
             excludeFailingTests="true"
             killDetailsFile="${major.kill.log}"
             excludeFile="${major.exclude}"
             exportKillMap="true"
+            exportCovMap="true"
             >
 
             <!--
@@ -234,8 +242,8 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
                 <fileset refid="major.tests"/>
             </batchtest>
         </junit>
-    </parallel>
-    </target>
+      </parallel>
+  </target>
 
 <!--
     Compile generated unit tests
@@ -249,6 +257,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
         <echo message="classes.dir: ${classes.dir}" />
         <echo message="build.home: ${build.home}" />
 
+        <delete dir="${build.home}/gen-tests" quiet="true" />
         <mkdir dir="${build.home}/gen-tests" />
         <javac srcdir="${d4j.test.dir}"
                destdir="${build.home}/gen-tests"
@@ -328,7 +337,9 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
         <delete file="${d4j.workdir}/${d4j.file.cobertura.ser}"/>
         <cobertura-instrument failOnError="true" toDir="${d4j.dir.classes.instrumented}" datafile="${d4j.workdir}/${d4j.file.cobertura.ser}">
             <fileset dir="${classes.dir}" includes="${d4j.classes.instrument}" />
-            <auxClasspath path="${cobertura.aux.classpath}" />
+            <auxClasspath>
+                <path refid="compile.classpath" />
+            </auxClasspath>
         </cobertura-instrument>
         <!-- Backup instrumented classes and empty data file -->
         <copy file="${d4j.workdir}/${d4j.properties}" todir="${d4j.dir.classes.instrumented}" overwrite="true"/>
@@ -345,7 +356,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
 <!--
     Update list of all manual tests to only include relevant tests
 -->
-    <target name="update.all.tests" if="d4j.relevant.tests.only">
+    <target name="update.all.tests" if="${d4j.relevant.tests.only}">
         <!-- TODO: Conversions in Ant a rather cumbersome and hacky. Also, the
                    build file should not rely on the current directory structure
               => D4J should provide properly filtered files in the working directory-->
