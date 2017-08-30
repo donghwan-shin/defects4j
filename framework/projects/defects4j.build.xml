@@ -242,8 +242,8 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
                 <fileset refid="major.tests"/>
             </batchtest>
         </junit>
-        </parallel>
-    </target>
+      </parallel>
+  </target>
 
 <!--
     Compile generated unit tests
@@ -277,6 +277,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
     Run generated tests
 -->
     <target name="run.gen.tests"  depends="compile.gen.tests" description="Run generated tests">
+        <!-- <parallel threadCount="1" timeout="1800000"> -->
         <!-- d4j.test.dir, d4j.test.include, and class.dir properties have to be provided by caller! -->
         <fail message="Property d4j.test.dir not set!" unless="d4j.test.dir" />
         <fail message="Property d4j.test.include not set!" unless="d4j.test.include" />
@@ -311,6 +312,7 @@ project-specific build file ("project_id"/"project_id".build.xml) for the
                     </fileset>
                 </batchtest>
         </junit>
+        <!-- </parallel> // TODO: remove (donghwan) -->
     </target>
 
 <!--
