@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# Copyright (c) 2014-2015 René Just, Darioush Jalali, and Defects4J contributors.
+# Copyright (c) 2014-2017 René Just, Darioush Jalali, and Defects4J contributors.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -58,7 +58,49 @@ my $TESTMAP_FILE = "testMap.csv";
 
 =head2 Static subroutines
 
-  Mutation::mutation_analysis(project_ref, log_file [, base_map, single_test])
+  Mutation::create_mml(instrument_classes, out_file, mut_ops)
+
+Generates an mml file, enabling all mutation operators defined by the array
+reference C<mut_ops> for all classes listed in F<instrument_classes>. The mml
+(source) file is written to C<out_file>. This subroutine also compiles the mml
+file to F<'out_file'.bin>.
+
+=cut
+sub create_mml {
+    @_ == 3 or die $ARG_ERROR;
+    my ($instrument_classes, $out_file, $mut_ops) = @_;
+
+    my $OUT_DIR = Utils::get_dir($out_file);
+    my $TEMPLATE = `cat $MAJOR_ROOT/mml/template.mml` or die "Cannot read mml template: $!";
+
+    system("mkdir -p $OUT_DIR");
+
+    open(IN, $instrument_classes);
+    my @classes = <IN>;
+    close(IN);
+
+    # Generate mml file by enabling operators for listed classes only
+    open(FILE, ">$out_file") or die "Cannot write mml file ($out_file): $!";
+    # Add operator definitions from template
+    print FILE $TEMPLATE;
+    # Enable operators for all classes
+    foreach my $class (@classes) {
+        chomp $class;
+        print FILE "\n// Enable operators for $class\n";
+        foreach my $op (@{$mut_ops}) {
+            # Skip disabled operators
+            next if $TEMPLATE =~ /-$op<"$class">/;
+            print FILE "$op<\"$class\">;\n";
+        }
+    }
+    close(FILE);
+    Utils::exec_cmd("$MAJOR_ROOT/bin/mmlc $out_file 2>&1", "Compiling mutant definition (mml)")
+            or die "Cannot compile mml file: $out_file!";
+}
+
+=pod
+
+  Mutation::mutation_analysis(project_ref, log_file [, exclude_file, base_map, single_test])
 
 Runs mutation analysis for the developer-written test suites of the provided
 L<Project> reference.  Returns a reference to a hash that provides kill details
@@ -72,15 +114,16 @@ for all covered mutants:
 
 =cut
 sub mutation_analysis {
-    @_ >= 2 or die $ARG_ERROR;
-    my ($project, $log_file, $base_map, $single_test) = @_;
+    @_ >= 3 or die $ARG_ERROR;
+    my ($project, $log_file, $exclude_file, $base_map, $single_test) = @_;
 
-    # If base_map is defined, exclude all already killed mutants from analysis
+    # If base_map is defined, exclude all already killed mutants (in addition to
+    # the mutants defined in the exclude file) from the analysis.
     if (defined $base_map) {
-        _exclude_mutants($project, $base_map)
+        $exclude_file = _exclude_mutants($project, $exclude_file, $base_map)
     }
 
-    if (! $project->mutation_analysis($log_file, $single_test)) {
+    if (! $project->mutation_analysis($log_file, 0, $exclude_file, $single_test)) {
         return undef;
     }
 
@@ -90,7 +133,7 @@ sub mutation_analysis {
 
 =pod
 
-  Mutation::mutation_analysis_ext(project_ref, test_dir, include, log_file [, base_map])
+  Mutation::mutation_analysis_ext(project_ref, test_dir, include, log_file [, exclude_file, base_map])
 
 Runs mutation analysis for external (e.g., generated) test suites on the
 provided L<Project> reference. Returns a reference to a hash that provides kill
@@ -105,14 +148,15 @@ details for all covered mutants:
 =cut
 sub mutation_analysis_ext {
     @_ >= 4 or die $ARG_ERROR;
-    my ($project, $test_dir, $include, $log_file, $base_map) = @_;
+    my ($project, $test_dir, $include, $log_file, $exclude_file, $base_map) = @_;
 
-    # If base_map is defined, exclude all already killed mutants from analysis
+    # If base_map is defined, exclude all already killed mutants (in addition to
+    # the mutants defined in the exclude file) from the analysis.
     if (defined $base_map) {
-        _exclude_mutants($project, $base_map)
+        $exclude_file = _exclude_mutants($project, $exclude_file, $base_map)
     }
 
-    if (! $project->mutation_analysis_ext($test_dir, $include, $log_file)) {
+    if (! $project->mutation_analysis_ext($test_dir, $include, $log_file, $exclude_file)) {
         return undef;
     }
 
@@ -122,7 +166,7 @@ sub mutation_analysis_ext {
 
 =pod
 
-  Mutation::insert_row(output_dir, pid, vid, suite_src, tid, gen [, mutation_map])
+  Mutation::insert_row(output_dir, pid, vid, suite_src, tid, gen, num_excluded [, mutation_map])
 
 Insert a row into the database table L<TAB_MUTATION|DB>. C<hashref> points to a
 hash holding all key-value pairs of the data row.  F<out_dir> is the optional
@@ -131,10 +175,10 @@ alternative database directory to use.
 =cut
 sub insert_row {
     @_ >= 5 or die $ARG_ERROR;
-    my ($out_dir, $pid, $vid, $suite, $test_id, $gen, $mut_map) = @_;
+    my ($out_dir, $pid, $vid, $suite, $test_id, $gen, $num_excluded, $mut_map) = @_;
 
     # Build data hash
-    my $data = _build_data_hash($pid, $vid, $suite, $test_id, $gen, $mut_map);
+    my $data = _build_data_hash($pid, $vid, $suite, $test_id, $gen, $num_excluded, $mut_map);
 
     # Get proper output db handle: check whether a different output directory is provided
     my $dbh;
@@ -228,18 +272,33 @@ sub _build_mut_map {
 
 
 #
-# Write already killed mutants to exclude file
+# Write the list of already killed mutants to a plain-text exclude file.
 #
 sub _exclude_mutants {
-    @_ == 2 or die $ARG_ERROR;
-    my ($project, $mut_map) = @_;
+    @_ == 3 or die $ARG_ERROR;
+    my ($project, $exclude_file, $mut_map) = @_;
 
     open(OUT, ">$project->{prog_root}/$EXCL_FILE") or die "Cannot open exclude file!";
     foreach my $mut_id (keys %{$mut_map}) {
         next if ($mut_map->{$mut_id} eq "LIVE");
         print OUT "$mut_id\n";
     }
+
+    if (defined $exclude_file) {
+        # Add all mutants defined in the exclude file that are not already killed
+        open(EXCL, "<$exclude_file") or die "Cannot read exclude file";
+        while (<EXCL>) {
+            next if /^\s*(#.*)?$/;
+            /^\s*([0-9]+)/ or die "Unexpected line in exclude file!";
+            my $mut_id = $1;
+            next if (exists $mut_map->{$mut_id} && $mut_map->{mut_id} ne "LIVE");
+            print OUT "$mut_id\n";
+        }
+        close(EXCL);
+    }
     close(OUT);
+
+    return "$project->{prog_root}/$EXCL_FILE";
 }
 
 
@@ -249,7 +308,7 @@ sub _exclude_mutants {
 #
 sub _build_data_hash {
     @_ >= 5 or die $ARG_ERROR;
-    my ($pid, $vid, $suite, $test_id, $gen, $mut_map) = @_;
+    my ($pid, $vid, $suite, $test_id, $gen, $num_excluded, $mut_map) = @_;
 
     my $cov;
     my $kill;
@@ -269,6 +328,7 @@ sub _build_data_hash {
         $TEST_SUITE => $suite,
         $TEST_ID => $test_id,
         $MUT_GEN => $gen,
+        $MUT_EXCL => $num_excluded,
         $MUT_COV => $cov,
         $MUT_KILL => $kill,
     };

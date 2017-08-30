@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# Copyright (c) 2014-2015 René Just, Darioush Jalali, and Defects4J contributors.
+# Copyright (c) 2014-2017 René Just, Darioush Jalali, and Defects4J contributors.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -83,6 +83,10 @@ Commons lang (L<Vcs::Git> backend)
 
 Commons math (L<Vcs::Git> backend)
 
+=item * L<Mockito|Project::Mockito>
+
+Mockito (L<Vcs::Git> backend)
+
 =item * L<Time|Project::Time>
 
 Joda-time (L<Vcs::Git> backend)
@@ -96,6 +100,7 @@ use warnings;
 use strict;
 use Constants;
 use Utils;
+use Mutation;
 use Carp qw(confess);
 
 =pod
@@ -587,7 +592,7 @@ This subroutine returns a reference to a hash with the keys C<src> and C<test>:
 If the test execution fails, the returned reference is C<undef>.
 
 A class is included in the result if it exists in the source or test directory
-of the checked-out program verion and if it was loaded during the test execution.
+of the checked-out program version and if it was loaded during the test execution.
 
 The location of the test sources can be provided with the optional parameter F<test_dir>.
 The default is the test directory of the developer-written tests.
@@ -687,14 +692,43 @@ sub coverage_report {
 
 =pod
 
-  $project->mutate()
+  $project->mutate(instrument_classes, mut_ops)
 
-Mutates the checked-out program version.
+Mutates all classes listed in F<instrument_classes>, using all mutation operators
+defined by the array reference C<mut_ops>, in the checked-out program version.
 Returns the number of generated mutants on success, -1 otherwise.
 
 =cut
 sub mutate {
-    my $self = shift;
+    @_ == 3 or die $ARG_ERROR;
+    my ($self, $instrument_classes, $mut_ops)  = @_;
+    my $work_dir = $self->{prog_root};
+
+    # Read all classes that should be mutated
+    -e $instrument_classes or die "Classes file ($instrument_classes) does not exist!";
+    open(IN, "<$instrument_classes") or die "Cannot read $instrument_classes";
+    my @classes = ();
+    while(<IN>) {
+        s/\r?\n//;
+        push(@classes, $_);
+    }
+    close(IN);
+    # Update properties
+    my $list = join(",", @classes);
+    my $config = {$PROP_MUTATE => $list};
+    Utils::write_config_file("$work_dir/$PROP_FILE", $config);
+
+    # Create mutation definitions (mml file)
+    my $mml_src = "$self->{prog_root}/.mml/default.mml";
+    my $mml_bin = "${mml_src}.bin";
+
+    Mutation::create_mml($instrument_classes, $mml_src, $mut_ops);
+    -e "$mml_bin" or die "Mml file does not exist: $mml_bin!";
+
+    # Set environment variable MML, which is read by Major
+    $ENV{MML} = $mml_bin;
+
+    # Mutate and compile sources
     if (! $self->_ant_call("mutate")) {
         return -1;
     }
@@ -708,7 +742,7 @@ sub mutate {
 
 =pod
 
-  $project->mutation_analysis(log_file, relevant_tests [, single_test])
+  $project->mutation_analysis(log_file, relevant_tests [, exclude_file, single_test])
 
 Performs mutation analysis for the developer-written tests of the checked-out program
 version.
@@ -721,8 +755,9 @@ B<Note that C<mutate> is not called implicitly>.
 =cut
 sub mutation_analysis {
     @_ >= 3 or die $ARG_ERROR;
-    my ($self, $log_file, $relevant_tests, $single_test) = @_;
+    my ($self, $log_file, $relevant_tests, $exclude_file, $single_test) = @_;
     my $log = "-logfile $log_file";
+    my $exclude = defined $exclude_file ? "-Dmajor.exclude=$exclude_file" : "";
     my $relevant = $relevant_tests ? "-Dd4j.relevant.tests.only=true" : "";
 
     my $single_test_opt = "";
@@ -734,14 +769,13 @@ sub mutation_analysis {
     my $basedir = $self->{prog_root};
 
     return $self->_ant_call("mutation.test",
-                            "-Dmajor.exclude=$basedir/exclude.txt " .
                             "-Dmajor.kill.log=$basedir/kill.csv " .
-                            "$relevant $log $single_test_opt");
+                            "$relevant $log $exclude $single_test_opt");
 }
 
 =pod
 
-  $project->mutation_analysis_ext(test_dir, test_include, log_file [, single_test])
+  $project->mutation_analysis_ext(test_dir, test_include, log_file [, exclude_file, single_test])
 
 Performs mutation analysis for all tests in F<test_dir> that match the pattern
 C<test_include>. 
@@ -753,8 +787,9 @@ B<Note that C<mutate> is not called implicitly>.
 =cut
 sub mutation_analysis_ext {
     @_ >= 4 or die $ARG_ERROR;
-    my ($self, $dir, $include, $log_file, $single_test) = @_;
+    my ($self, $dir, $include, $log_file, $exclude_file, $single_test) = @_;
     my $log = "-logfile $log_file";
+    my $exclude = defined $exclude_file ? "-Dmajor.exclude=$exclude_file" : "";
 
     my $basedir = $self->{prog_root};
 
@@ -766,9 +801,8 @@ sub mutation_analysis_ext {
 
     return $self->_ant_call("mutation.test",
                             "-Dd4j.test.dir=$dir -Dd4j.test.include=$include " .
-                            "-Dmajor.exclude=$basedir/exclude.txt " .
                             "-Dmajor.kill.log=$basedir/kill.csv " .
-                            "$log $single_test_opt");
+                            "$log $exclude $single_test_opt");
 }
 
 =pod
