@@ -80,10 +80,12 @@ sub coverage {
 	my $serfile  = "$root/$SER_FILE";
 
     # Remove stale data file
-    system("rm -f $serfile");
+#    system("rm -f $serfile");
 
     # Instrument all classes provided
-	$project->coverage_instrument($instrument_classes) or return undef;
+    if (! -e $serfile) {
+        $project->coverage_instrument($instrument_classes) or return undef;
+	}
 
     # Execute test suite
     if ($relevant_tests) {
